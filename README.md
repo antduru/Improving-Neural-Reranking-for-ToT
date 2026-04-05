@@ -10,3 +10,7 @@ python src/eda.py
 Package Versions:
 ir_datasets version: 0.5.11
 matplotlib version: 3.8.4
+
+AI USE STATEMENT:
+I did not use any AI when I wrote the proposal.
+I did not use any AI (including Copilot) in the code.
