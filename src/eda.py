@@ -30,13 +30,15 @@ doc_lengths = [len(d.split()) for d in docs]
 print("Num docs (sampled):", len(docs))
 print("Avg doc length:", sum(doc_lengths) / len(doc_lengths))
 
+
 # Analyze query-document overlap
 def overlap(q, d):
     q_set = set(q.split())
     d_set = set(d.split())
     return len(q_set & d_set) / len(q_set) if len(q_set) > 0 else 0
 
-docs_list = docs 
+
+docs_list = docs
 overlaps = []
 
 for q in queries:
@@ -67,7 +69,9 @@ plt.title("Query Length Distribution")
 plt.xlabel("Query Length")
 plt.ylabel("Count")
 repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
-out_path = os.path.join(repo_root, "reports", "figures", "query_length_distribution.png")
+out_path = os.path.join(
+    repo_root, "reports", "figures", "query_length_distribution.png"
+)
 os.makedirs(os.path.dirname(out_path), exist_ok=True)
 plt.tight_layout()
 plt.savefig(out_path, dpi=300)

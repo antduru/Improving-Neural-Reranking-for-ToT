@@ -2,6 +2,7 @@ import json
 import argparse
 import wandb
 
+
 def main(result_path: str):
     with open(result_path, "r") as f:
         result = json.load(f)

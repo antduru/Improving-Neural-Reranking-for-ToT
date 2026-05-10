@@ -6,6 +6,7 @@ import numpy as np
 from scipy.stats import wilcoxon
 from load_data import load_tot_dataset
 
+
 def load_json(path):
     with open(path, "r") as f:
         return json.load(f)
@@ -16,6 +17,7 @@ def reciprocal_rank(ranked_doc_ids, relevant_doc_ids, k=10):
         if doc_id in relevant_doc_ids:
             return 1.0 / rank
     return 0.0
+
 
 def ndcg_at_k(ranked_doc_ids, relevant_doc_ids, k=10):
     dcg = 0.0
@@ -44,7 +46,9 @@ def main():
     parser.add_argument("--dataset_name", type=str, default="trec-tot/2023/dev")
     parser.add_argument("--baseline_rankings", type=str, required=True)
     parser.add_argument("--proposed_rankings", type=str, required=True)
-    parser.add_argument("--out_path", type=str, default="../outputs/statistical_test.json")
+    parser.add_argument(
+        "--out_path", type=str, default="../outputs/statistical_test.json"
+    )
     args = parser.parse_args()
 
     _, _, qrels = load_tot_dataset(args.dataset_name)

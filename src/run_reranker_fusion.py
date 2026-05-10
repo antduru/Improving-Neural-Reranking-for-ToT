@@ -15,9 +15,11 @@ from metrics import evaluate_run
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_DIR = ROOT / "outputs"
 
+
 def load_json(path):
     with open(path, "r") as f:
         return json.load(f)
+
 
 def minmax_normalize(x):
     x = np.asarray(x, dtype=np.float32)
@@ -25,12 +27,15 @@ def minmax_normalize(x):
         return np.zeros_like(x)
     return (x - x.min()) / (x.max() - x.min())
 
+
 def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--dataset_name", type=str, default="trec-tot/2023/dev")
     parser.add_argument("--bm25_rankings_path", type=str, required=True)
-    parser.add_argument("--model_name", type=str, default="cross-encoder/ms-marco-MiniLM-L-6-v2")
+    parser.add_argument(
+        "--model_name", type=str, default="cross-encoder/ms-marco-MiniLM-L-6-v2"
+    )
     parser.add_argument("--rerank_top_k", type=int, default=100)
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--lambda_bm25", type=float, default=0.75)
@@ -47,13 +52,12 @@ def main():
 
     fused_rankings = {}
 
-    for query_id, ranked_doc_ids in tqdm(bm25_rankings.items(), desc="Fusion reranking"):
-        candidate_doc_ids = ranked_doc_ids[:args.rerank_top_k]
+    for query_id, ranked_doc_ids in tqdm(
+        bm25_rankings.items(), desc="Fusion reranking"
+    ):
+        candidate_doc_ids = ranked_doc_ids[: args.rerank_top_k]
 
-        pairs = [
-            (queries[query_id], docs[doc_id])
-            for doc_id in candidate_doc_ids
-        ]
+        pairs = [(queries[query_id], docs[doc_id]) for doc_id in candidate_doc_ids]
 
         ce_scores = model.predict(
             pairs,
@@ -72,14 +76,13 @@ def main():
         )
 
         final_scores = (
-            args.lambda_bm25 * bm25_rank_scores
-            + (1.0 - args.lambda_bm25) * ce_norm
+            args.lambda_bm25 * bm25_rank_scores + (1.0 - args.lambda_bm25) * ce_norm
         )
 
         sorted_indices = np.argsort(final_scores)[::-1]
         fused_top = [candidate_doc_ids[i] for i in sorted_indices]
 
-        remaining = ranked_doc_ids[args.rerank_top_k:]
+        remaining = ranked_doc_ids[args.rerank_top_k :]
         fused_rankings[query_id] = fused_top + remaining
 
     metrics = evaluate_run(
@@ -101,8 +104,14 @@ def main():
     }
 
     safe_model_name = args.model_name.replace("/", "_")
-    result_path = OUTPUT_DIR / f"rank_fusion_{safe_model_name}_topk_{args.rerank_top_k}_lambda_{args.lambda_bm25}.json"
-    rankings_path = OUTPUT_DIR / f"rank_fusion_rankings_{safe_model_name}_topk_{args.rerank_top_k}_lambda_{args.lambda_bm25}.json"
+    result_path = (
+        OUTPUT_DIR
+        / f"rank_fusion_{safe_model_name}_topk_{args.rerank_top_k}_lambda_{args.lambda_bm25}.json"
+    )
+    rankings_path = (
+        OUTPUT_DIR
+        / f"rank_fusion_rankings_{safe_model_name}_topk_{args.rerank_top_k}_lambda_{args.lambda_bm25}.json"
+    )
 
     with open(result_path, "w") as f:
         json.dump(result, f, indent=2)
@@ -120,6 +129,7 @@ def main():
         wandb.finish()
 
     print(json.dumps(result, indent=2))
+
 
 if __name__ == "__main__":
     main()

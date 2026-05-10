@@ -14,9 +14,11 @@ ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_DIR = ROOT / "outputs"
 CACHE_DIR = ROOT / "cache"
 
+
 def tokenize(text: str):
     text = text.lower()
     return re.findall(r"\b\w+\b", text)
+
 
 def load_or_create_tokenized_corpus(docs):
     CACHE_DIR.mkdir(exist_ok=True)
@@ -32,8 +34,7 @@ def load_or_create_tokenized_corpus(docs):
     doc_ids = list(docs.keys())
 
     corpus = [
-        tokenize(docs[doc_id])
-        for doc_id in tqdm(doc_ids, desc="Tokenizing documents")
+        tokenize(docs[doc_id]) for doc_id in tqdm(doc_ids, desc="Tokenizing documents")
     ]
 
     with open(cache_path, "wb") as f:

@@ -1,5 +1,6 @@
 import ir_datasets
 
+
 def load_tot_dataset(dataset_name: str = "trec-tot/2023/dev"):
     dataset = ir_datasets.load(dataset_name)
 
@@ -38,7 +39,9 @@ def load_tot_dataset(dataset_name: str = "trec-tot/2023/dev"):
 if __name__ == "__main__":
     queries, docs, qrels = load_tot_dataset()
 
-    print(f"Loaded {len(queries)} queries, {len(docs)} documents, and {sum(len(v) for v in qrels.values())} relevant pairs.")
+    print(
+        f"Loaded {len(queries)} queries, {len(docs)} documents, and {sum(len(v) for v in qrels.values())} relevant pairs."
+    )
 
     first_qid = next(iter(queries))
     print()

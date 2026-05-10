@@ -4,6 +4,7 @@ from pathlib import Path
 from load_data import load_tot_dataset
 from metrics import recall_at_k
 
+
 def load_json(path):
     with open(path, "r") as f:
         return json.load(f)

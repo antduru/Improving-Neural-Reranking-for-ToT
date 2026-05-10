@@ -1,14 +1,19 @@
 import math
 from typing import Dict, List, Set
 
-def reciprocal_rank(ranked_doc_ids: List[str], relevant_doc_ids: Set[str], k: int = 10) -> float:
+
+def reciprocal_rank(
+    ranked_doc_ids: List[str], relevant_doc_ids: Set[str], k: int = 10
+) -> float:
     for rank, doc_id in enumerate(ranked_doc_ids[:k], start=1):
         if doc_id in relevant_doc_ids:
             return 1.0 / rank
     return 0.0
 
 
-def recall_at_k(ranked_doc_ids: List[str], relevant_doc_ids: Set[str], k: int = 100) -> float:
+def recall_at_k(
+    ranked_doc_ids: List[str], relevant_doc_ids: Set[str], k: int = 100
+) -> float:
     if not relevant_doc_ids:
         return 0.0
 
@@ -16,7 +21,9 @@ def recall_at_k(ranked_doc_ids: List[str], relevant_doc_ids: Set[str], k: int = 
     return len(retrieved.intersection(relevant_doc_ids)) / len(relevant_doc_ids)
 
 
-def ndcg_at_k(ranked_doc_ids: List[str], relevant_doc_ids: Set[str], k: int = 10) -> float:
+def ndcg_at_k(
+    ranked_doc_ids: List[str], relevant_doc_ids: Set[str], k: int = 10
+) -> float:
     dcg = 0.0
 
     for i, doc_id in enumerate(ranked_doc_ids[:k], start=1):
