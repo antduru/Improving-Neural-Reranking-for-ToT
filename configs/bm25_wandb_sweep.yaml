@@ -1,0 +1,15 @@
+program: src/log_bm25_wandb_sweep.py
+entity: ant-duru
+project: is584-tot-reranking
+method: grid
+metric:
+  name: mrr@10
+  goal: maximize
+parameters:
+  run_name:
+    values:
+      - "k1_0.8_b_0.4_topk_100"
+      - "k1_0.8_b_0.75_topk_100"
+      - "k1_1.2_b_0.75_topk_100"
+      - "k1_1.6_b_0.75_topk_100"
+      - "k1_1.6_b_0.9_topk_100"
