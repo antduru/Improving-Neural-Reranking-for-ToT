@@ -1,0 +1,9 @@
+dataset: trec-tot
+method: bm25
+k1: 1.2
+b: 0.75
+top_k: 100
+metrics:
+  - mrr@10
+  - ndcg@10
+  - recall@100

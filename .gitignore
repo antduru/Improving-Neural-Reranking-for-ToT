@@ -49,6 +49,7 @@ runs/
 outputs/
 checkpoints/
 tb_logs/
+cache/
 events.out.tfevents.*
 
 # Model artifacts (usually large)
