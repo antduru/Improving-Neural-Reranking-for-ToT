@@ -46,3 +46,6 @@ pyyaml==6.0.2
 
 AI USE STATEMENT:
 In this project, AI is used for code formatting (not code generation), and ReadMe generation.
+
+!!!Very Important Note: On 13.06.2026, trec-tot 2023 data unexpectedly became unreachable with ir_datasets package. Therefore, I added load_data_new.py script,
+which requires manually downloading the data from the web.
