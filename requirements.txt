@@ -8,3 +8,6 @@ tqdm
 ranx
 matplotlib
 pyyaml
+sentence-transformers
+torch
+scikit-learn
