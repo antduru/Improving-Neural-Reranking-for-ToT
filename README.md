@@ -428,3 +428,6 @@ AI assistance was used for language editing in reports, README organization, and
 ## 9. Report
 
 Project Phase 3 report is under reports folder.
+
+## 10. Note
+Please reach me if there are any problems with executing the code.
