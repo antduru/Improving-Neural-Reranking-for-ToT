@@ -36,7 +36,7 @@ The main finding is that candidate generation and neural re-ranking fail in diff
 │   └── summarize_all_results.py
 └── data/                  # Not included in the repository; create manually.
 
-
+```
 Generated files are written to `outputs/`. BM25 tokenization caches are written to `cache/`.
 
 ---
@@ -101,6 +101,7 @@ random.seed(42)
 np.random.seed(42)
 torch.manual_seed(42)
 torch.cuda.manual_seed_all(42)
+```
 
 Note: these experiments do not train models. Most computations are deterministic ranking, scoring, and evaluation steps. Minor floating-point differences may still occur across different hardware, CUDA versions, or PyTorch builds.
 
