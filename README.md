@@ -1,51 +1,447 @@
-# Improving-Neural-Reranking-for-ToT
+# Improving Neural Re-Ranking for Tip-of-the-Tongue Retrieval
 
-This project aims to improve ToT performance with adaptive query-aware neural re-ranking.
+This repository contains the code used for the IS584 term project **"Analyzing and Improving Tip-of-the-Tongue Retrieval with Neural Re-Ranking."** The project evaluates BM25, dense retrieval, dense-lexical hybrid retrieval, Reciprocal Rank Fusion, CrossEncoder re-ranking, rank-preserving fusion, and diagnostic error analysis on the TREC Tip-of-the-Tongue 2023 development set.
 
-## EDA and Quality Check
-- `src/eda.py` is the script to see stats of queries and documents, and the distributions. To run the code, 
+The main finding is that candidate generation and neural re-ranking fail in different ways: expanding and diversifying the candidate pool improves candidate availability, while unconstrained CrossEncoder re-ranking often over-promotes semantically plausible distractors.
 
-## Implementation Scripts
-- `src/load_data.py`: Loads the TREC Tip-of-the-Tongue dataset with queries, documents, and relevance judgments using `ir_datasets`.
+---
 
-- `src/metrics.py`: Implements the evaluation metrics used in the project, including MRR@10, nDCG@10, and Recall@k.
+## 1. Repository Structure
 
-- `src/run_bm25.py`: Runs the BM25 lexical baseline with selected `k1`, `b`, and `top_k` parameters, then saves rankings and evaluation results.
+```text
+.
+├── README.md
+├── requirements.txt
+├── configs/
+│   ├── bm25_sweep.yaml
+│   └── bm25_wandb_sweep.yaml
+├── src/
+│   ├── load_data.py
+│   ├── reproducibility.py
+│   ├── metrics.py
+│   ├── run_bm25.py
+│   ├── run_bm25_sweep.py
+│   ├── run_dense.py
+│   ├── combine_rankings.py
+│   ├── evaluate_candidate_recall.py
+│   ├── compare_candidate_recall.py
+│   ├── oracle_upper_bound.py
+│   ├── run_reranker.py
+│   ├── run_reranker_fusion.py
+│   ├── run_gated_reranker.py
+│   ├── run_reranker_rank_injected.py
+│   ├── run_reranker_field_aware.py
+│   ├── run_multiview_reranker_fusion.py
+│   ├── statistical_test.py
+│   ├── export_error_analysis.py
+│   └── summarize_all_results.py
+└── data/                  # Not included in the repository; create manually.
 
-- `src/run_bm25_sweep.py`: Executes a small scripted BM25 parameter sweep over selected `k1` and `b` configurations.
 
-- `src/log_bm25_wandb_sweep.py`: Logs saved BM25 sweep results into a W&B sweep without recomputing the retrieval runs.
+Generated files are written to `outputs/`. BM25 tokenization caches are written to `cache/`.
 
-- `src/summarize_bm25_results.py`: Aggregates BM25 result JSON files into a single CSV summary table.
+---
 
-- `src/run_reranker.py`: Applies a cross-encoder re-ranker to BM25 candidates and evaluates the re-ranked output.
+## 2. Environment Setup
 
-- `src/run_reranker_fusion.py`: Combines BM25 rank or score signals with cross-encoder scores using weighted fusion.
+Recommended Python version: **Python 3.10 or 3.11**.
 
-- `src/evaluate_candidate_recall.py`: Computes candidate recall at different pool sizes such as top-100, top-500, and top-1000.
+From the repository root, create and activate a virtual environment:
 
-- `src/summarize_all_results.py`: Aggregates BM25, cross-encoder, and fusion experiment results into one summary CSV.
+```bash
+python -m venv .venv
+source .venv/bin/activate      # Linux/macOS
+# .venv\Scripts\activate       # Windows PowerShell
+```
 
-- `src/statistical_test.py`: Performs query-level Wilcoxon signed-rank testing between the BM25 baseline and the proposed fusion method.
+Install the required dependencies:
 
-python src/eda.py
+```bash
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
 
-Package Versions:
-ir-datasets==0.5.11
-rank-bm25==0.2.2
-wandb==0.26.1
-numpy==1.26.4
-pandas==2.2.2
-scipy==1.13.0
-tqdm==4.65.0
-sentence-transformers==5.4.1
-torch==2.4.1
-scikit-learn==1.4.2
-matplotlib==3.8.4
-pyyaml==6.0.2
+The experiments use `sentence-transformers` and PyTorch. If CUDA is available, the neural retrieval and re-ranking scripts automatically use GPU; otherwise, they run on CPU.
 
-AI USE STATEMENT:
-In this project, AI is used for code formatting (not code generation), and ReadMe generation.
+---
 
-!!!Very Important Note: On 13.06.2026, trec-tot 2023 data unexpectedly became unreachable with ir_datasets package. Therefore, I changed load_data.py script,
-which requires manually downloading the data from the web and read it locally.
+## 3. Dataset Setup
+
+The code expects the TREC-ToT 2023 development data in the following local structure:
+
+```text
+data/
+├── corpus.jsonl
+└── dev/
+    ├── queries.jsonl
+    └── qrels.txt
+```
+
+The original `ir_datasets` download endpoint for TREC-ToT 2023 became unavailable during replication. Therefore, `src/load_data.py` first checks for the local `data/` directory above. If the files exist locally, they are used directly. If they do not exist, the loader falls back to `ir_datasets`.
+
+After placing the files, verify the dataset can be loaded:
+
+```bash
+python -c "import sys; sys.path.append('src'); from load_data import load_tot_dataset; q,d,r = load_tot_dataset('trec-tot/2023/dev'); print(len(q), len(d), len(r))"
+```
+
+Expected output for the local TREC-ToT 2023 development setup:
+
+```text
+150 231848 150
+```
+
+---
+
+## 4. Reproducibility and Random Seeds
+
+All main experiment scripts explicitly set random seeds through `src/reproducibility.py`. The function `set_global_seed(seed)` sets:
+
+- `PYTHONHASHSEED`
+- Python `random.seed(seed)`
+- `numpy.random.seed(seed)`
+- `torch.manual_seed(seed)`
+- `torch.cuda.manual_seed(seed)` and `torch.cuda.manual_seed_all(seed)` when CUDA is available
+- `torch.backends.cudnn.deterministic = True`
+- `torch.backends.cudnn.benchmark = False`
+
+The default seed is **42**. The main scripts expose a `--seed` argument. All commands below explicitly pass `--seed 42` for replicability.
+
+Note: these experiments do not train models. Most computations are deterministic ranking, scoring, and evaluation steps. Minor floating-point differences may still occur across different hardware, CUDA versions, or PyTorch builds.
+
+---
+
+## 5. Step-by-Step Reproduction
+
+Create output directories:
+
+```bash
+mkdir -p outputs cache reports/figures
+```
+
+### Step 1: Run the tuned BM25 baseline
+
+```bash
+python src/run_bm25.py \
+  --dataset_name trec-tot/2023/dev \
+  --k1 1.6 \
+  --b 0.9 \
+  --top_k 1000 \
+  --seed 42
+```
+
+This produces:
+
+```text
+outputs/rank_bm25_k1_1.6_b_0.9_topk_1000.json
+outputs/rank_bm25_rankings_k1_1.6_b_0.9_topk_1000.json
+```
+
+Optional BM25 sweep:
+
+```bash
+python src/run_bm25_sweep.py
+python src/summarize_bm25_results.py
+```
+
+### Step 2: Run dense retrieval
+
+```bash
+python src/run_dense.py \
+  --dataset trec-tot/2023/dev \
+  --model_name sentence-transformers/msmarco-MiniLM-L-6-v3 \
+  --top_k 1000 \
+  --batch_size 64 \
+  --output_dir outputs \
+  --seed 42
+```
+
+This produces:
+
+```text
+outputs/dense_sentence-transformers_msmarco-MiniLM-L-6-v3_topk_1000.json
+outputs/dense_rankings_sentence-transformers_msmarco-MiniLM-L-6-v3_topk_1000.json
+```
+
+### Step 3: Build dense-lexical hybrid candidate pools
+
+Hybrid union, using BM25@100 and Dense@1000:
+
+```bash
+python src/combine_rankings.py \
+  --dataset trec-tot/2023/dev \
+  --ranking_a outputs/rank_bm25_rankings_k1_1.6_b_0.9_topk_1000.json \
+  --ranking_b outputs/dense_rankings_sentence-transformers_msmarco-MiniLM-L-6-v3_topk_1000.json \
+  --label_a BM25 \
+  --label_b Dense \
+  --a_k 100 \
+  --b_k 1000 \
+  --method union \
+  --max_output_k 1000 \
+  --output_name hybrid_union_bm25_100_dense_1000 \
+  --seed 42
+```
+
+Hybrid Reciprocal Rank Fusion:
+
+```bash
+python src/combine_rankings.py \
+  --dataset trec-tot/2023/dev \
+  --ranking_a outputs/rank_bm25_rankings_k1_1.6_b_0.9_topk_1000.json \
+  --ranking_b outputs/dense_rankings_sentence-transformers_msmarco-MiniLM-L-6-v3_topk_1000.json \
+  --label_a BM25 \
+  --label_b Dense \
+  --a_k 100 \
+  --b_k 1000 \
+  --method rrf \
+  --rrf_k 60 \
+  --max_output_k 1000 \
+  --output_name hybrid_rrf_bm25_100_dense_1000 \
+  --seed 42
+```
+
+### Step 4: Evaluate candidate availability
+
+Candidate recall for one ranking file:
+
+```bash
+python src/evaluate_candidate_recall.py \
+  --dataset_name trec-tot/2023/dev \
+  --rankings_path outputs/rank_bm25_rankings_k1_1.6_b_0.9_topk_1000.json
+```
+
+McNemar comparison of candidate pools:
+
+```bash
+python src/compare_candidate_recall.py \
+  --dataset trec-tot/2023/dev \
+  --baseline_label BM25 \
+  --baseline_rankings outputs/rank_bm25_rankings_k1_1.6_b_0.9_topk_1000.json \
+  --baseline_k 100 \
+  --system BM25=outputs/rank_bm25_rankings_k1_1.6_b_0.9_topk_1000.json Dense=outputs/dense_rankings_sentence-transformers_msmarco-MiniLM-L-6-v3_topk_1000.json Hybrid=outputs/hybrid_union_bm25_100_dense_1000_rankings.json \
+  --candidate_ks 100,500,1000 \
+  --out_csv outputs/candidate_recall_comparison.csv \
+  --out_json outputs/candidate_recall_comparison.json \
+  --seed 42
+```
+
+Oracle upper-bound analysis:
+
+```bash
+python src/oracle_upper_bound.py \
+  --dataset trec-tot/2023/dev \
+  --rankings outputs/rank_bm25_rankings_k1_1.6_b_0.9_topk_1000.json \
+  --candidate_ks 100,500,1000 \
+  --eval_k 10 \
+  --out_csv outputs/oracle_upper_bound.csv \
+  --out_json outputs/oracle_upper_bound.json \
+  --seed 42
+```
+
+### Step 5: Run pure CrossEncoder re-ranking
+
+Pure CrossEncoder over BM25@1000:
+
+```bash
+python src/run_reranker.py \
+  --dataset_name trec-tot/2023/dev \
+  --bm25_rankings_path outputs/rank_bm25_rankings_k1_1.6_b_0.9_topk_1000.json \
+  --model_name cross-encoder/ms-marco-MiniLM-L-6-v2 \
+  --rerank_top_k 1000 \
+  --batch_size 16 \
+  --seed 42
+```
+
+To preserve this output before running other pure CrossEncoder experiments, copy it:
+
+```bash
+cp outputs/reranker_cross-encoder_ms-marco-MiniLM-L-6-v2_topk_1000.json outputs/reranker_bm25_1000_crossencoder_result.json
+cp outputs/reranker_rankings_cross-encoder_ms-marco-MiniLM-L-6-v2_topk_1000.json outputs/reranker_bm25_1000_crossencoder_rankings.json
+```
+
+Pure CrossEncoder over the hybrid union pool:
+
+```bash
+python src/run_reranker.py \
+  --dataset_name trec-tot/2023/dev \
+  --bm25_rankings_path outputs/hybrid_union_bm25_100_dense_1000_rankings.json \
+  --model_name cross-encoder/ms-marco-MiniLM-L-6-v2 \
+  --rerank_top_k 1000 \
+  --batch_size 16 \
+  --seed 42
+```
+
+### Step 6: Run rank-preserving CrossEncoder fusion
+
+```bash
+python src/run_reranker_fusion.py \
+  --dataset_name trec-tot/2023/dev \
+  --bm25_rankings_path outputs/hybrid_union_bm25_100_dense_1000_rankings.json \
+  --model_name cross-encoder/ms-marco-MiniLM-L-6-v2 \
+  --rerank_top_k 1000 \
+  --batch_size 16 \
+  --lambda_bm25 0.99 \
+  --seed 42
+```
+
+This produces:
+
+```text
+outputs/rank_fusion_cross-encoder_ms-marco-MiniLM-L-6-v2_topk_1000_lambda_0.99.json
+outputs/rank_fusion_rankings_cross-encoder_ms-marco-MiniLM-L-6-v2_topk_1000_lambda_0.99.json
+```
+
+### Step 7: Run controlled re-ranking variants
+
+Rank-injected CrossEncoder:
+
+```bash
+python src/run_reranker_rank_injected.py \
+  --dataset trec-tot/2023/dev \
+  --rankings_path outputs/hybrid_union_bm25_100_dense_1000_rankings.json \
+  --model_name cross-encoder/ms-marco-MiniLM-L-6-v2 \
+  --rerank_top_k 1000 \
+  --batch_size 16 \
+  --output_dir outputs \
+  --seed 42
+```
+
+Confidence-gated CrossEncoder:
+
+```bash
+python src/run_gated_reranker.py \
+  --dataset trec-tot/2023/dev \
+  --rankings_path outputs/hybrid_union_bm25_100_dense_1000_rankings.json \
+  --model_name cross-encoder/ms-marco-MiniLM-L-6-v2 \
+  --rerank_top_k 1000 \
+  --batch_size 16 \
+  --max_promotions 3 \
+  --min_ce_norm 0.95 \
+  --min_gap 0.05 \
+  --max_original_rank 1000 \
+  --output_dir outputs \
+  --seed 42
+```
+
+Field-aware CrossEncoder:
+
+```bash
+python src/run_reranker_field_aware.py \
+  --dataset trec-tot/2023/dev \
+  --rankings_path outputs/hybrid_union_bm25_100_dense_1000_rankings.json \
+  --model_name cross-encoder/ms-marco-MiniLM-L-6-v2 \
+  --rerank_top_k 1000 \
+  --batch_size 16 \
+  --output_dir outputs \
+  --seed 42
+```
+
+Multiview CrossEncoder fusion:
+
+```bash
+python src/run_multiview_reranker_fusion.py \
+  --dataset trec-tot/2023/dev \
+  --rankings_path outputs/hybrid_union_bm25_100_dense_1000_rankings.json \
+  --model_name cross-encoder/ms-marco-MiniLM-L-6-v2 \
+  --rerank_top_k 1000 \
+  --batch_size 16 \
+  --lambda_rank 0.99 \
+  --aggregation max \
+  --output_dir outputs \
+  --seed 42
+```
+
+Alternative BGE reranker can be tested by replacing the model name in fusion commands, for example:
+
+```bash
+python src/run_reranker_fusion.py \
+  --dataset_name trec-tot/2023/dev \
+  --bm25_rankings_path outputs/hybrid_union_bm25_100_dense_1000_rankings.json \
+  --model_name BAAI/bge-reranker-base \
+  --rerank_top_k 1000 \
+  --batch_size 16 \
+  --lambda_bm25 0.99 \
+  --seed 42
+```
+
+### Step 8: Run statistical testing
+
+Compare BM25 against the final rank-preserving fusion system:
+
+```bash
+python src/statistical_test.py \
+  --dataset_name trec-tot/2023/dev \
+  --baseline_rankings outputs/rank_bm25_rankings_k1_1.6_b_0.9_topk_1000.json \
+  --proposed_rankings outputs/rank_fusion_rankings_cross-encoder_ms-marco-MiniLM-L-6-v2_topk_1000_lambda_0.99.json \
+  --out_path outputs/statistical_test.json \
+  --seed 42
+```
+
+### Step 9: Export rank-movement error analysis
+
+```bash
+python src/export_error_analysis.py \
+  --bm25_rankings outputs/rank_bm25_rankings_k1_1.6_b_0.9_topk_1000.json \
+  --ce_rankings outputs/reranker_bm25_1000_crossencoder_rankings.json \
+  --fusion_rankings outputs/rank_fusion_rankings_cross-encoder_ms-marco-MiniLM-L-6-v2_topk_1000_lambda_0.99.json \
+  --dataset_name trec-tot/2023/dev \
+  --out_csv outputs/error_analysis_rank_movements.csv \
+  --out_examples_csv outputs/error_analysis_representative_cases.csv \
+  --seed 42
+```
+
+This produces:
+
+```text
+outputs/error_analysis_rank_movements.csv
+outputs/error_analysis_representative_cases.csv
+```
+
+### Step 10: Summarize result files
+
+```bash
+python src/summarize_all_results.py
+```
+
+This produces:
+
+```text
+outputs/all_results_summary.csv
+```
+
+---
+
+## 6. Main Scripts
+
+| Script | Purpose |
+|---|---|
+| `src/load_data.py` | Loads local TREC-ToT files first, then falls back to `ir_datasets`. |
+| `src/reproducibility.py` | Sets Python, NumPy, and PyTorch seeds. |
+| `src/metrics.py` | Implements MRR@10, nDCG@10, and Recall@K. |
+| `src/run_bm25.py` | Runs the BM25 lexical baseline. |
+| `src/run_dense.py` | Runs dense retrieval with SentenceTransformers. |
+| `src/combine_rankings.py` | Builds hybrid union or RRF candidate pools. |
+| `src/run_reranker.py` | Runs pure CrossEncoder re-ranking. |
+| `src/run_reranker_fusion.py` | Runs rank-preserving CrossEncoder fusion. |
+| `src/run_gated_reranker.py` | Runs confidence-gated CrossEncoder re-ranking. |
+| `src/run_reranker_rank_injected.py` | Runs CrossEncoder re-ranking with BM25 rank injected into the document text. |
+| `src/run_reranker_field_aware.py` | Runs CrossEncoder re-ranking over compact field-aware document representations. |
+| `src/run_multiview_reranker_fusion.py` | Scores multiple document views and applies rank-preserving fusion. |
+| `src/statistical_test.py` | Runs query-level Wilcoxon significance testing. |
+| `src/export_error_analysis.py` | Exports contrastive rank-movement and representative failure cases. |
+
+---
+
+## 7. Notes
+
+- The local `data/` directory is not included in this repository.
+- The first BM25 run creates a tokenized corpus cache under `cache/`, which speeds up later BM25 runs.
+- W&B logging is optional. Do not use `--use_wandb` unless your W&B account is configured.
+- The neural scripts download model weights from Hugging Face on first use.
+- CPU execution is possible but substantially slower for dense retrieval and CrossEncoder re-ranking.
+
+---
+
+## 8. AI Use Statement
+
+AI assistance was used for language editing, README organization, and formatting support. All experiments, analysis decisions, and reported results were produced and verified by the author.
