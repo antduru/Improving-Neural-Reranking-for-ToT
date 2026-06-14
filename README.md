@@ -105,7 +105,7 @@ All main experiment scripts explicitly set random seeds through `src/reproducibi
 - `torch.backends.cudnn.deterministic = True`
 - `torch.backends.cudnn.benchmark = False`
 
-The default seed is **42**. The main scripts expose a `--seed` argument. All commands below explicitly pass `--seed 42` for replicability.
+The default seed is **42**. The main scripts expose a `--seed` argument. All commands below explicitly pass `--seed 42` for replicability. # Not implemented fully. Yet, the results are mostly the same across multiple runs.
 
 Note: these experiments do not train models. Most computations are deterministic ranking, scoring, and evaluation steps. Minor floating-point differences may still occur across different hardware, CUDA versions, or PyTorch builds.
 
@@ -444,4 +444,4 @@ outputs/all_results_summary.csv
 
 ## 8. AI Use Statement
 
-AI assistance was used for language editing, README organization, and formatting support. All experiments, analysis decisions, and reported results were produced and verified by the author.
+AI assistance was used for language editing in reports, README organization, and formatting support. All experiments, analysis decisions, and reported results were produced and verified by the author.
