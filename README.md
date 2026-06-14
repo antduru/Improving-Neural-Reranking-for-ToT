@@ -445,3 +445,7 @@ outputs/all_results_summary.csv
 ## 8. AI Use Statement
 
 AI assistance was used for language editing in reports, README organization, and formatting support. All experiments, analysis decisions, and reported results were produced and verified by the author.
+
+## 9. Report
+
+Project Phase 3 report is under reports folder.
