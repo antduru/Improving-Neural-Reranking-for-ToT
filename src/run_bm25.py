@@ -1,6 +1,8 @@
 import argparse
 import json
+import os
 import pickle
+import random
 import re
 from pathlib import Path
 import numpy as np
@@ -9,6 +11,12 @@ from rank_bm25 import BM25Okapi
 from tqdm import tqdm
 from load_data import load_tot_dataset
 from metrics import evaluate_run
+
+SEED = 42
+
+os.environ["PYTHONHASHSEED"] = str(SEED)
+random.seed(SEED)
+np.random.seed(SEED)
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_DIR = ROOT / "outputs"

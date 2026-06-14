@@ -6,11 +6,29 @@ from typing import Any, Dict, List
 import ir_datasets
 import numpy as np
 import torch
+import os
+import random
 from sentence_transformers import CrossEncoder
 from tqdm import tqdm
 
 from load_data import load_tot_dataset
 from metrics import evaluate_run
+
+SEED = 42
+
+os.environ["PYTHONHASHSEED"] = str(SEED)
+random.seed(SEED)
+np.random.seed(SEED)
+
+try:
+    import torch
+
+    torch.manual_seed(SEED)
+    torch.cuda.manual_seed_all(SEED)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+except ImportError:
+    pass
 
 IMPORTANT_INFOBOX_KEYS = {"name","native_name","director","producer","writer","screenplay","based_on","starring","music","cinematography","editing","production_companies","distributor","released","runtime","country","language","genre","author","publisher","developer","platform","artist","album","created_by","original_network","composer"}
 

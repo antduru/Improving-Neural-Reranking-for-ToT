@@ -1,6 +1,13 @@
 import itertools
+import os
+import random
 import subprocess
+import numpy
+SEED = 42
 
+os.environ["PYTHONHASHSEED"] = str(SEED)
+random.seed(SEED)
+np.random.seed(SEED)
 
 RUNS = [
     {"k1": 0.8, "b": 0.4, "top_k": 100},

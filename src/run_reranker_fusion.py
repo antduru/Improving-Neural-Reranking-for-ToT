@@ -5,12 +5,28 @@ from pathlib import Path
 import numpy as np
 import torch
 import wandb
+import os
+import random
 from sentence_transformers import CrossEncoder
 from tqdm import tqdm
 
 from load_data import load_tot_dataset
 from metrics import evaluate_run
+SEED = 42
 
+os.environ["PYTHONHASHSEED"] = str(SEED)
+random.seed(SEED)
+np.random.seed(SEED)
+
+try:
+    import torch
+
+    torch.manual_seed(SEED)
+    torch.cuda.manual_seed_all(SEED)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+except ImportError:
+    pass
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_DIR = ROOT / "outputs"

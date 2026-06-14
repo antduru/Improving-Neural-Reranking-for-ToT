@@ -17,7 +17,6 @@ The main finding is that candidate generation and neural re-ranking fail in diff
 │   └── bm25_wandb_sweep.yaml
 ├── src/
 │   ├── load_data.py
-│   ├── reproducibility.py
 │   ├── metrics.py
 │   ├── run_bm25.py
 │   ├── run_bm25_sweep.py
@@ -95,17 +94,13 @@ Expected output for the local TREC-ToT 2023 development setup:
 
 ## 4. Reproducibility and Random Seeds
 
-All main experiment scripts explicitly set random seeds through `src/reproducibility.py`. The function `set_global_seed(seed)` sets:
+All runnable experiment scripts explicitly set a fixed random seed of 42 at the beginning of execution. The seed block sets Python's `random`, NumPy, PyTorch, and CUDA seeds where available:
 
-- `PYTHONHASHSEED`
-- Python `random.seed(seed)`
-- `numpy.random.seed(seed)`
-- `torch.manual_seed(seed)`
-- `torch.cuda.manual_seed(seed)` and `torch.cuda.manual_seed_all(seed)` when CUDA is available
-- `torch.backends.cudnn.deterministic = True`
-- `torch.backends.cudnn.benchmark = False`
-
-The default seed is **42**. The main scripts expose a `--seed` argument. All commands below explicitly pass `--seed 42` for replicability. # Not implemented fully. Yet, the results are mostly the same across multiple runs.
+```python
+random.seed(42)
+np.random.seed(42)
+torch.manual_seed(42)
+torch.cuda.manual_seed_all(42)
 
 Note: these experiments do not train models. Most computations are deterministic ranking, scoring, and evaluation steps. Minor floating-point differences may still occur across different hardware, CUDA versions, or PyTorch builds.
 
@@ -126,8 +121,7 @@ python src/run_bm25.py \
   --dataset_name trec-tot/2023/dev \
   --k1 1.6 \
   --b 0.9 \
-  --top_k 1000 \
-  --seed 42
+  --top_k 1000
 ```
 
 This produces:
@@ -152,8 +146,7 @@ python src/run_dense.py \
   --model_name sentence-transformers/msmarco-MiniLM-L-6-v3 \
   --top_k 1000 \
   --batch_size 64 \
-  --output_dir outputs \
-  --seed 42
+  --output_dir outputs
 ```
 
 This produces:
@@ -178,8 +171,7 @@ python src/combine_rankings.py \
   --b_k 1000 \
   --method union \
   --max_output_k 1000 \
-  --output_name hybrid_union_bm25_100_dense_1000 \
-  --seed 42
+  --output_name hybrid_union_bm25_100_dense_1000
 ```
 
 Hybrid Reciprocal Rank Fusion:
@@ -196,8 +188,7 @@ python src/combine_rankings.py \
   --method rrf \
   --rrf_k 60 \
   --max_output_k 1000 \
-  --output_name hybrid_rrf_bm25_100_dense_1000 \
-  --seed 42
+  --output_name hybrid_rrf_bm25_100_dense_1000
 ```
 
 ### Step 4: Evaluate candidate availability
@@ -221,8 +212,7 @@ python src/compare_candidate_recall.py \
   --system BM25=outputs/rank_bm25_rankings_k1_1.6_b_0.9_topk_1000.json Dense=outputs/dense_rankings_sentence-transformers_msmarco-MiniLM-L-6-v3_topk_1000.json Hybrid=outputs/hybrid_union_bm25_100_dense_1000_rankings.json \
   --candidate_ks 100,500,1000 \
   --out_csv outputs/candidate_recall_comparison.csv \
-  --out_json outputs/candidate_recall_comparison.json \
-  --seed 42
+  --out_json outputs/candidate_recall_comparison.json
 ```
 
 Oracle upper-bound analysis:
@@ -234,8 +224,7 @@ python src/oracle_upper_bound.py \
   --candidate_ks 100,500,1000 \
   --eval_k 10 \
   --out_csv outputs/oracle_upper_bound.csv \
-  --out_json outputs/oracle_upper_bound.json \
-  --seed 42
+  --out_json outputs/oracle_upper_bound.json
 ```
 
 ### Step 5: Run pure CrossEncoder re-ranking
@@ -248,8 +237,7 @@ python src/run_reranker.py \
   --bm25_rankings_path outputs/rank_bm25_rankings_k1_1.6_b_0.9_topk_1000.json \
   --model_name cross-encoder/ms-marco-MiniLM-L-6-v2 \
   --rerank_top_k 1000 \
-  --batch_size 16 \
-  --seed 42
+  --batch_size 16
 ```
 
 To preserve this output before running other pure CrossEncoder experiments, copy it:
@@ -267,8 +255,7 @@ python src/run_reranker.py \
   --bm25_rankings_path outputs/hybrid_union_bm25_100_dense_1000_rankings.json \
   --model_name cross-encoder/ms-marco-MiniLM-L-6-v2 \
   --rerank_top_k 1000 \
-  --batch_size 16 \
-  --seed 42
+  --batch_size 16
 ```
 
 ### Step 6: Run rank-preserving CrossEncoder fusion
@@ -280,8 +267,7 @@ python src/run_reranker_fusion.py \
   --model_name cross-encoder/ms-marco-MiniLM-L-6-v2 \
   --rerank_top_k 1000 \
   --batch_size 16 \
-  --lambda_bm25 0.99 \
-  --seed 42
+  --lambda_bm25 0.99
 ```
 
 This produces:
@@ -302,8 +288,7 @@ python src/run_reranker_rank_injected.py \
   --model_name cross-encoder/ms-marco-MiniLM-L-6-v2 \
   --rerank_top_k 1000 \
   --batch_size 16 \
-  --output_dir outputs \
-  --seed 42
+  --output_dir outputs
 ```
 
 Confidence-gated CrossEncoder:
@@ -319,8 +304,7 @@ python src/run_gated_reranker.py \
   --min_ce_norm 0.95 \
   --min_gap 0.05 \
   --max_original_rank 1000 \
-  --output_dir outputs \
-  --seed 42
+  --output_dir outputs
 ```
 
 Field-aware CrossEncoder:
@@ -332,8 +316,7 @@ python src/run_reranker_field_aware.py \
   --model_name cross-encoder/ms-marco-MiniLM-L-6-v2 \
   --rerank_top_k 1000 \
   --batch_size 16 \
-  --output_dir outputs \
-  --seed 42
+  --output_dir outputs
 ```
 
 Multiview CrossEncoder fusion:
@@ -347,8 +330,7 @@ python src/run_multiview_reranker_fusion.py \
   --batch_size 16 \
   --lambda_rank 0.99 \
   --aggregation max \
-  --output_dir outputs \
-  --seed 42
+  --output_dir outputs
 ```
 
 Alternative BGE reranker can be tested by replacing the model name in fusion commands, for example:
@@ -360,8 +342,7 @@ python src/run_reranker_fusion.py \
   --model_name BAAI/bge-reranker-base \
   --rerank_top_k 1000 \
   --batch_size 16 \
-  --lambda_bm25 0.99 \
-  --seed 42
+  --lambda_bm25 0.99
 ```
 
 ### Step 8: Run statistical testing
@@ -373,8 +354,7 @@ python src/statistical_test.py \
   --dataset_name trec-tot/2023/dev \
   --baseline_rankings outputs/rank_bm25_rankings_k1_1.6_b_0.9_topk_1000.json \
   --proposed_rankings outputs/rank_fusion_rankings_cross-encoder_ms-marco-MiniLM-L-6-v2_topk_1000_lambda_0.99.json \
-  --out_path outputs/statistical_test.json \
-  --seed 42
+  --out_path outputs/statistical_test.json
 ```
 
 ### Step 9: Export rank-movement error analysis
@@ -386,8 +366,7 @@ python src/export_error_analysis.py \
   --fusion_rankings outputs/rank_fusion_rankings_cross-encoder_ms-marco-MiniLM-L-6-v2_topk_1000_lambda_0.99.json \
   --dataset_name trec-tot/2023/dev \
   --out_csv outputs/error_analysis_rank_movements.csv \
-  --out_examples_csv outputs/error_analysis_representative_cases.csv \
-  --seed 42
+  --out_examples_csv outputs/error_analysis_representative_cases.csv
 ```
 
 This produces:
@@ -416,7 +395,6 @@ outputs/all_results_summary.csv
 | Script | Purpose |
 |---|---|
 | `src/load_data.py` | Loads local TREC-ToT files first, then falls back to `ir_datasets`. |
-| `src/reproducibility.py` | Sets Python, NumPy, and PyTorch seeds. |
 | `src/metrics.py` | Implements MRR@10, nDCG@10, and Recall@K. |
 | `src/run_bm25.py` | Runs the BM25 lexical baseline. |
 | `src/run_dense.py` | Runs dense retrieval with SentenceTransformers. |
